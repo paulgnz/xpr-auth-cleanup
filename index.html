@@ -249,6 +249,11 @@ const ProtonSDK=(window.ProtonWebSDK&&(window.ProtonWebSDK.default||window.Proto
 function setStep(n){document.querySelectorAll('#wizard .step').forEach(s=>{const v=+s.dataset.s;s.classList.toggle('on',v===n);s.classList.toggle('done',v<n);});}
 async function rpc(path,body){return (await fetch(NET.rpc+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)})).json();}
 async function hyperion(qs){return (await fetch(NET.hyperion+'/v2/history/get_actions?'+qs)).json();}
+// XPR Network leaves core_liquid_balance null; the real liquid balance is the eosio.token XPR balance.
+async function xprBalance(account){
+  try{ const a=await rpc('/v1/chain/get_currency_balance',{code:'eosio.token',account,symbol:'XPR'});
+       return (Array.isArray(a)&&a.length)?a[0]:'0 XPR'; }catch{ return '0 XPR'; }
+}
 async function currentLinks(account){
   const collect=async name=>(await hyperion(`account=${account}&act.account=eosio&act.name=${name}&limit=500&sort=asc`)).actions||[];
   const evs=[...(await collect('linkauth')),...(await collect('unlinkauth'))].sort((a,b)=>a.global_sequence>b.global_sequence?1:-1);
@@ -266,7 +271,7 @@ async function audit(self){
   const links=await currentLinks(self);
   rep.appendChild(el('div','eyebrow','Audit result'));
   rep.appendChild(el('h3',null,`<code>${self}</code> <span class="small" style="font-weight:400">· mainnet · <a href="${NET.account}${self}" target="_blank">view on explorer ↗</a> (Keys tab)</span>`));
-  const liquid=acct.core_liquid_balance||'0 XPR';
+  const liquid=await xprBalance(self);
   const stakedXpr=Number((acct.voter_info&&acct.voter_info.staked)||0)/10000;
   rep.appendChild(el('div','small',`Liquid: <b style="color:var(--ink)">${liquid}</b> · Staked: <b style="color:var(--ink)">${stakedXpr.toLocaleString()} XPR</b>`));
   const suspects=[];
