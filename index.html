@@ -241,6 +241,9 @@ const NETS={
   testnet:{chainId:'71ee83bcf52142d61019d95f9cc5427ba6a0d7ff8accd9e2088ae2abeaf3d3dd',rpc:'https://proton-testnet.eosusa.io',hyperion:'https://proton-testnet.eosusa.io',explorer:'https://testnet.explorer.xprnetwork.org/transaction/',account:'https://testnet.explorer.xprnetwork.org/account/'},
 };
 const KNOWN_BAD=new Set(['xprgrant','symbiote','xprdrops','rasmr5']);
+// Official Metallicus / WebAuth system accounts. When these control a permission it is the normal
+// WebAuth wallet setup (passkey signing + push notifications) — expected and safe, NOT a threat.
+const KNOWN_SAFE=new Set(['webauthn','webauth.com']);
 const RISKY_TYPES=new Set(['unstakexpr','refundxpr','delegatebw','undelegatebw','voteproducer','updateauth','linkauth']);
 let session=null,link=null,NET=NETS.mainnet,PLAN=null;
 const $=id=>document.getElementById(id);
@@ -274,30 +277,50 @@ async function audit(self){
   const liquid=await xprBalance(self);
   const stakedXpr=Number((acct.voter_info&&acct.voter_info.staked)||0)/10000;
   rep.appendChild(el('div','small',`Liquid: <b style="color:var(--ink)">${liquid}</b> · Staked: <b style="color:var(--ink)">${stakedXpr.toLocaleString()} XPR</b>`));
-  const suspects=[];
-  for(const p of acct.permissions){const f=foreignControllers(p,self);if(f.length)suspects.push({perm:p.perm_name,parent:p.parent,foreign:f,bad:f.some(x=>KNOWN_BAD.has(x.split('@')[0])),links:links[p.perm_name]||[]});}
+  // Classify a permission's foreign controllers: known drainers (bad), official WebAuth/Metallicus
+  // system accounts (safe — webauthn/webauth.com), or unrecognised (unknown). Only bad/unknown flag.
+  const classify=p=>{
+    const foreign=(p.required_auth.accounts||[]).map(a=>a.permission).filter(x=>x.actor!==self);
+    const f=arr=>arr.map(x=>`${x.actor}@${x.permission}`);
+    return {bad:f(foreign.filter(x=>KNOWN_BAD.has(x.actor))),
+            safe:f(foreign.filter(x=>KNOWN_SAFE.has(x.actor))),
+            unknown:f(foreign.filter(x=>!KNOWN_BAD.has(x.actor)&&!KNOWN_SAFE.has(x.actor)))};
+  };
+  const suspects=[];let usesWebAuth=false;
+  for(const p of acct.permissions){
+    const c=classify(p);
+    if(c.safe.length)usesWebAuth=true;
+    if(c.bad.length||c.unknown.length)suspects.push({perm:p.perm_name,parent:p.parent,foreign:[...c.bad,...c.unknown],bad:c.bad.length>0,links:links[p.perm_name]||[]});
+  }
   if(suspects.some(s=>s.bad))rep.appendChild(el('div','note crit',`🚨 <b>MALICIOUS permission found.</b> A known drainer account controls this account. Remove it now (below).`));
-  else if(suspects.length)rep.appendChild(el('div','note warn',`⚠️ <b>${suspects.length} foreign-controlled permission(s)</b> found — an account other than you can act for you. Review below.`));
-  else rep.appendChild(el('div','note good',`✅ No foreign-controlled permissions found. No account other than you can act on your behalf.`));
+  else if(suspects.length)rep.appendChild(el('div','note warn',`⚠️ <b>${suspects.length} permission(s)</b> are controlled by an account that isn't you and isn't a recognised system account. Review them below — they may be a legitimate multisig/team setup, or not.`));
+  else rep.appendChild(el('div','note good',`✅ No malicious or unrecognised permissions. No account other than you${usesWebAuth?' (and the WebAuth system)':''} can act on your behalf.`));
+  if(usesWebAuth)rep.appendChild(el('div','note',`ℹ️ This account uses <b>WebAuth</b>. <code>webauthn@eosio.code</code> and <code>webauth.com@push</code> are <b>official Metallicus / WebAuth system accounts</b> — required for passkey signing and push. They are <b>expected and safe; do not remove them.</b>`));
   rep.appendChild(el('div','small',`<b style="color:var(--ink)">Full permission audit</b> (${acct.permissions.length}) — cross-check on the <a href="${NET.account}${self}" target="_blank">explorer Keys tab ↗</a>:`));
   for(const p of acct.permissions){
-    const f=foreignControllers(p,self),pl=links[p.perm_name]||[],flag=f.length>0;
+    const c=classify(p),pl=links[p.perm_name]||[],suspicious=c.bad.length||c.unknown.length;
     const keys=(p.required_auth.keys||[]).length;
     const selfAcc=(p.required_auth.accounts||[]).filter(a=>a.permission.actor===self).map(a=>`${a.permission.actor}@${a.permission.permission}`);
-    const card=el('div','permcard'+(flag?' flag':''));
-    card.innerHTML=`<div><b>${p.perm_name}</b> <span class="small">parent ${p.parent||'—'} · threshold ${p.required_auth.threshold}</span> `+
-      (flag?`<span class="tag bad">FOREIGN CONTROL</span>`:`<span class="tag ok">ok</span>`)+`</div>`+
-      `<div class="small">keys: ${keys} · self: ${selfAcc.join(', ')||'—'}`+(f.length?` · <span style="color:var(--red)">foreign: ${f.join(', ')}</span>`:``)+`</div>`+
-      (pl.length?`<div class="small" style="margin-top:4px">linked actions:</div><ul>`+pl.map(l=>`<li class="${(flag||isRiskyLink(l))?'risk':''}">${l}${isRiskyLink(l)?' ⚠️':''}</li>`).join('')+`</ul>`:``);
+    const tag=c.bad.length?`<span class="tag bad">MALICIOUS</span>`:c.unknown.length?`<span class="tag bad">FOREIGN CONTROL</span>`:c.safe.length?`<span class="tag ok">WebAuth · ok</span>`:`<span class="tag ok">ok</span>`;
+    const card=el('div','permcard'+(suspicious?' flag':''));
+    card.innerHTML=`<div><b>${p.perm_name}</b> <span class="small">parent ${p.parent||'—'} · threshold ${p.required_auth.threshold}</span> `+tag+`</div>`+
+      `<div class="small">keys: ${keys} · self: ${selfAcc.join(', ')||'—'}`+
+      (suspicious?` · <span style="color:var(--red)">foreign: ${[...c.bad,...c.unknown].join(', ')}</span>`:``)+
+      (c.safe.length?` · <span style="color:var(--green)">WebAuth: ${c.safe.join(', ')}</span>`:``)+`</div>`+
+      (pl.length?`<div class="small" style="margin-top:4px">linked actions:</div><ul>`+pl.map(l=>`<li class="${(suspicious||isRiskyLink(l))?'risk':''}">${l}${isRiskyLink(l)?' ⚠️':''}</li>`).join('')+`</ul>`:``);
     rep.appendChild(card);
   }
   const CORE=new Set(['owner','active']);
   const core=suspects.find(s=>CORE.has(s.perm));
   if(core)rep.appendChild(el('div','note crit',`🚨 Your core <code>${core.perm}</code> permission is controlled by <b>${core.foreign.join(', ')}</b>. This tool will NOT auto-delete a core permission — that risks locking you out. It must be RESET (an <code>updateauth</code> removing the foreign account and setting a fresh key), ideally with help from WebAuth / Metallicus. Do not unstake or move funds until it is reset.`));
   const deletable=suspects.filter(s=>!CORE.has(s.perm));
-  const target=deletable.find(s=>s.bad)||deletable[0];
+  const target=deletable.find(s=>s.bad); // auto-offer cleanup ONLY for known drainer permissions
   if(target&&session&&session.auth.actor.toString()===self)buildPlan(self,target,stakedXpr);
-  else{$('planPanel').className='card hidden';if(target)rep.appendChild(el('div','note warn',`Connect as <code>${self}</code> to remove the <code>${target.perm}</code> permission in one signed transaction.`));}
+  else{
+    $('planPanel').className='card hidden';
+    if(target)rep.appendChild(el('div','note warn',`Connect as <code>${self}</code> to remove the <code>${target.perm}</code> permission in one signed transaction.`));
+    else if(deletable.length)rep.appendChild(el('div','note warn',`The flagged permission(s) above are controlled by an account that isn't a <i>known</i> drainer — possibly a legitimate multisig/team setup. This tool only auto-removes known-malicious permissions; if you don't recognise one, verify it and remove it via WebAuth or a block explorer.`));
+  }
 }
 function buildPlan(self,target,stakedXpr){
   if(target.perm==='owner'||target.perm==='active')return;
