@@ -312,7 +312,7 @@ async function audit(self){
   }
   const CORE=new Set(['owner','active']);
   const core=suspects.find(s=>CORE.has(s.perm));
-  if(core)rep.appendChild(el('div','note crit',`🚨 Your core <code>${core.perm}</code> permission is controlled by <b>${core.foreign.join(', ')}</b>. This tool will NOT auto-delete a core permission — that risks locking you out. It must be RESET (an <code>updateauth</code> removing the foreign account and setting a fresh key), ideally with help from WebAuth / Metallicus. Do not unstake or move funds until it is reset.`));
+  if(core)rep.appendChild(el('div','note crit',`🚨 Your core <code>${core.perm}</code> permission is controlled by <b>${core.foreign.join(', ')}</b>. This tool will NOT auto-delete a core permission — that risks locking you out. It must be RESET (an <code>updateauth</code> removing the foreign account and setting a fresh key), ideally with help from official XPR Network support (<a href="https://help.xprnetwork.org" target="_blank">help.xprnetwork.org</a>). Do not unstake or move funds until it is reset.`));
   const deletable=suspects.filter(s=>!CORE.has(s.perm));
   const target=deletable.find(s=>s.bad); // auto-offer cleanup ONLY for known drainer permissions
   if(target&&session&&session.auth.actor.toString()===self)buildPlan(self,target,stakedXpr);

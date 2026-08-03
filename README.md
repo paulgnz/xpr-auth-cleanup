@@ -39,7 +39,8 @@ harmless; the danger is only if you open the link and connect your wallet there:
 - **It can only remove access.** The only actions it ever builds are `unlinkauth` / `deleteauth`.
   It cannot move funds or add permissions.
 - **It won't touch core permissions.** It refuses to auto-delete `owner`/`active` (which could
-  lock you out) and instead tells you to reset them with help from WebAuth / Metallicus.
+  lock you out) and instead tells you to reset them with help from official XPR Network support
+  (help.xprnetwork.org).
 - **Auditable.** The entire tool is this one `index.html`. Read it before you trust it.
 
 ### If you hold staked XPR — order matters
