@@ -9,44 +9,80 @@
           --red:#f85149; --amber:#e3b341; --green:#3fb950; --blue:#58a6ff; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--txt); font:15px/1.55 -apple-system,Segoe UI,Roboto,sans-serif; }
-  .wrap { max-width:760px; margin:0 auto; padding:24px 18px 80px; }
+  .wrap { max-width:780px; margin:0 auto; padding:24px 18px 80px; }
   h1 { font-size:22px; margin:.2em 0; }
+  h3 { margin:.2em 0 .4em; }
   .sub { color:var(--muted); margin-top:0; }
   .panel { background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:16px; margin:14px 0; }
   .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
   button { background:var(--blue); color:#0d1117; border:0; border-radius:8px; padding:10px 16px; font-weight:700; cursor:pointer; font-size:15px; }
-  button.secondary { background:transparent; color:var(--blue); border:1px solid var(--blue); }
   button.danger { background:var(--red); color:#fff; }
   button:disabled { opacity:.45; cursor:not-allowed; }
-  select { background:#0d1117; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px; }
+  select, input { background:#0d1117; color:var(--txt); border:1px solid var(--line); border-radius:8px; padding:8px; }
   code, .mono { font-family:ui-monospace,SFMono-Regular,Menlo,monospace; font-size:13px; }
   .tag { display:inline-block; padding:2px 8px; border-radius:999px; font-size:12px; font-weight:700; }
   .tag.bad { background:rgba(248,81,73,.15); color:var(--red); border:1px solid var(--red); }
   .tag.ok  { background:rgba(63,185,80,.15); color:var(--green); border:1px solid var(--green); }
-  .warn { border-left:3px solid var(--amber); background:rgba(227,179,65,.08); padding:12px 14px; border-radius:6px; }
-  .crit { border-left:3px solid var(--red); background:rgba(248,81,73,.08); padding:12px 14px; border-radius:6px; }
+  .warn { border-left:3px solid var(--amber); background:rgba(227,179,65,.08); padding:12px 14px; border-radius:6px; margin:8px 0; }
+  .crit { border-left:3px solid var(--red); background:rgba(248,81,73,.08); padding:12px 14px; border-radius:6px; margin:8px 0; }
+  .good { border-left:3px solid var(--green); background:rgba(63,185,80,.08); padding:12px 14px; border-radius:6px; margin:8px 0; }
   ul { margin:8px 0; padding-left:20px; }
   li { margin:2px 0; }
+  li.risk { color:var(--red); font-weight:600; }
   .kv { color:var(--muted); }
+  .permcard { border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin:8px 0; }
+  .permcard.flag { border-color:var(--red); }
   pre { background:#0d1117; border:1px solid var(--line); border-radius:8px; padding:12px; overflow:auto; max-height:240px; }
   a { color:var(--blue); }
   .small { font-size:12.5px; color:var(--muted); }
+  summary { cursor:pointer; font-weight:600; }
   .hidden { display:none; }
+  .steps { counter-reset:s; }
+  .steps > div { position:relative; padding-left:30px; margin:6px 0; }
+  .steps > div::before { counter-increment:s; content:counter(s); position:absolute; left:0; top:0;
+    width:22px; height:22px; border-radius:50%; background:var(--blue); color:#0d1117; font-weight:700;
+    text-align:center; line-height:22px; font-size:13px; }
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>🧹 XPR Auth Cleanup</h1>
-  <p class="sub">Removes malicious delegated permissions (e.g. the <code>claim</code> permission planted by the
-  <b>xprdrop.com</b> drainer) in a <b>single transaction</b> you sign yourself.</p>
+  <p class="sub">Audit your XPR Network account for malicious permissions and remove them in a single
+  transaction you sign yourself.</p>
 
-  <div class="crit">
-    <b>Read this first.</b> This tool never sees or stores your keys — you sign in your own wallet.
-    It only ever builds <code>unlinkauth</code> + <code>deleteauth</code> actions, shown to you in full before you sign.
-    It <b>cannot</b> move funds or add permissions. Verify the domain, prefer testnet first, and if you hold
-    <b>staked XPR, delete the permission BEFORE unstaking</b> (explained below).
+  <!-- ── EXPLAINER ─────────────────────────────────────────────────────── -->
+  <div class="panel">
+    <h3>⚠️ What's going on</h3>
+    <p>A phishing campaign (e.g. <b>xprdrop.com</b>) tricks XPR Network users into signing away control of
+    their account. It's a permission-delegation drainer — <b>no private key is stolen; you authorize it yourself
+    by signing what looks like an airdrop "claim".</b></p>
+    <div class="steps">
+      <div>You receive an unsolicited token (e.g. <code>XPRDROP</code>) whose memo advertises an airdrop site.</div>
+      <div>On the site, "claiming" makes you sign a transaction that creates a new permission (usually named
+      <code>claim</code>) controlled by the attacker's account, and links it to your token transfers — and
+      sometimes your unstaking.</div>
+      <div>Seconds later the attacker uses that permission to transfer out your tokens. Because it's a
+      <b>permission, not a one-off transfer, it persists</b> — they can drain you again when new funds arrive,
+      until you delete it.</div>
+    </div>
+    <details style="margin-top:8px">
+      <summary>Am I affected? / How this tool helps</summary>
+      <p class="small">Connect your wallet below (or type any account name for a read-only audit) and this tool
+      inspects every permission on the account and every linked action, flagging anything controlled by an account
+      that isn't you. If it finds the malicious permission, it builds one transaction — <code>unlinkauth</code> for
+      each linked action, then <code>deleteauth</code> — for you to sign. <b>It never sees your keys, has no backend,
+      and can only ever remove permissions — it cannot move funds.</b></p>
+    </details>
   </div>
 
+  <div class="crit">
+    <b>Trust check.</b> This tool is deliberately the <i>mirror image</i> of the scam: it asks you to connect and
+    sign an auth transaction — but only to <b>remove</b> access, never grant it. Every action is shown in full
+    before you sign. Source is one readable file: <a id="srclink" target="_blank" href="#">view on GitHub</a>.
+    If you hold <b>staked XPR, clean up FIRST, then unstake</b> (explained after the audit).
+  </div>
+
+  <!-- ── CONNECT / AUDIT ───────────────────────────────────────────────── -->
   <div class="panel">
     <div class="row">
       <label class="kv">Network</label>
@@ -54,12 +90,16 @@
         <option value="mainnet">Mainnet</option>
         <option value="testnet">Testnet (safe dry-run)</option>
       </select>
-      <button id="connect">Connect wallet</button>
+      <button id="connect">Connect wallet &amp; audit</button>
       <span id="who" class="small"></span>
     </div>
+    <p class="small" style="margin:8px 0 0">Or audit any account read-only (no wallet):
+      <input id="lookup" placeholder="account name" />
+      <button id="auditOnly" style="padding:6px 12px;font-size:14px">Audit</button></p>
   </div>
 
   <div id="report" class="hidden"></div>
+
   <div id="planPanel" class="panel hidden">
     <h3 style="margin-top:0">Cleanup transaction — review before signing</h3>
     <div id="planHuman"></div>
@@ -70,183 +110,163 @@
     </div>
   </div>
 
-  <p class="small">Open-source safety tool. Not affiliated with any airdrop. Source: this single HTML file —
-  read it before you trust it. Prototype: <b>test on testnet before using on mainnet</b>.</p>
+  <p class="small">Open-source safety tool, not affiliated with any airdrop. Prototype — verify on testnet first.</p>
 </div>
 
 <!-- Proton Web SDK (WebAuth / Anchor).
      PROTOTYPE: loads the current bundle from unpkg for in-browser testing.
      PRODUCTION: pin a specific stable version AND vendor the file locally — do NOT load a
-     security tool's core dependency from a third-party CDN (supply-chain risk; this repo is
-     literally about that). Verify the global export name in-browser; code below resolves
-     window.ProtonWebSDK (or its .default). -->
+     security tool's core dependency from a third-party CDN (supply-chain risk). Verify the
+     global export name in-browser; code below resolves window.ProtonWebSDK (or its .default). -->
 <script src="https://unpkg.com/@proton/web-sdk"></script>
 <script>
+const REPO = 'https://github.com/paulgnz/xpr-auth-cleanup';
 const NETS = {
   mainnet: { chainId:'384da888112027f0321850a169f737c33e53b388aad48b5adace4bab97f437e0',
              rpc:'https://proton.eosusa.io', hyperion:'https://proton.eosusa.io',
              explorer:'https://explorer.xprnetwork.org/transaction/' },
+  // NOTE: verify this testnet chainId in-browser before relying on it.
   testnet: { chainId:'71ee83bcf52142d61019d95f9cc5427ba6a0d7ff8accd9e2088ae2abeaf3d3dd',
              rpc:'https://proton-testnet.eosusa.io', hyperion:'https://proton-testnet.eosusa.io',
              explorer:'https://testnet.explorer.xprnetwork.org/transaction/' },
 };
-// Known-hostile controllers from the xprdrop campaign (2026-08). Any of these controlling
-// your account is CRITICAL. Foreign controllers NOT on this list are still flagged, just lower.
+// Known-hostile controllers from the xprdrop campaign (2026-08). These = CRITICAL.
 const KNOWN_BAD = new Set(['xprgrant','symbiote','xprdrops','rasmr5']);
+// Delegated links that reach STAKED funds or account control — always high-risk.
+const RISKY_TYPES = new Set(['unstakexpr','refundxpr','delegatebw','undelegatebw','voteproducer','updateauth','linkauth']);
 
-let SDK=null, session=null, link=null, NET=null, PLAN=null;
+let session=null, link=null, NET=null, PLAN=null;
 const $ = id => document.getElementById(id);
 const el = (t,c,h)=>{ const e=document.createElement(t); if(c)e.className=c; if(h!=null)e.innerHTML=h; return e; };
 const ProtonSDK = (window.ProtonWebSDK && (window.ProtonWebSDK.default||window.ProtonWebSDK));
+document.getElementById('srclink').href = REPO + '/blob/main/index.html';
 
 async function rpc(path, body){
   const r = await fetch(NET.rpc + path, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
   return r.json();
 }
-async function hyperion(qs){
-  const r = await fetch(NET.hyperion + '/v2/history/get_actions?' + qs);
-  return r.json();
-}
+async function hyperion(qs){ return (await fetch(NET.hyperion + '/v2/history/get_actions?' + qs)).json(); }
 
-// Compute the CURRENTLY-active link set for the account (net of link/unlink over time),
-// grouped by the permission each action is linked to.
+// Currently-active link set (net of link/unlink over time), grouped by target permission.
 async function currentLinks(account){
-  const collect = async (name)=>{
-    let out=[];
-    for (const sort of ['asc']) {
-      const d = await hyperion(`account=${account}&act.account=eosio&act.name=${name}&limit=500&sort=${sort}`);
-      out = out.concat(d.actions||[]);
-    }
-    return out;
-  };
+  const collect = async (name)=> (await hyperion(`account=${account}&act.account=eosio&act.name=${name}&limit=500&sort=asc`)).actions||[];
   const evs = [...(await collect('linkauth')), ...(await collect('unlinkauth'))]
     .sort((a,b)=> (a.global_sequence>b.global_sequence?1:-1));
-  const map = new Map(); // "code::type" -> requirement (or null if unlinked)
-  for (const a of evs){
-    const d=a.act.data, key=`${d.code}::${d.type}`;
-    map.set(key, a.act.name==='linkauth' ? d.requirement : null);
-  }
+  const map = new Map();
+  for (const a of evs){ const d=a.act.data; map.set(`${d.code}::${d.type}`, a.act.name==='linkauth'?d.requirement:null); }
   const byReq = {};
   for (const [key,req] of map){ if(!req) continue; (byReq[req]=byReq[req]||[]).push(key); }
-  return byReq; // { claim: ["eosio.token::transfer", ...], ... }
+  return byReq;
 }
+const foreignControllers = (perm, self) =>
+  (perm.required_auth.accounts||[]).map(a=>a.permission).filter(p=>p.actor!==self).map(p=>`${p.actor}@${p.permission}`);
+const isRiskyLink = key => RISKY_TYPES.has(key.split('::')[1]);
 
-function foreignControllers(perm, self){
-  return (perm.required_auth.accounts||[])
-    .map(a=>a.permission).filter(p=>p.actor!==self)
-    .map(p=>`${p.actor}@${p.permission}`);
-}
-
-async function analyze(){
-  const self = session.auth.actor.toString();
+// Core audit — works with or without a connected session.
+async function audit(self){
   const acct = await rpc('/v1/chain/get_account', {account_name:self});
-  const links = await currentLinks(self);
-
   const rep = $('report'); rep.className='panel'; rep.innerHTML='';
-  rep.appendChild(el('h3', null, `Account: <code>${self}</code>`));
+  if (acct.error || !acct.permissions){ rep.innerHTML=`<div class="crit">Account <code>${self}</code> not found on ${$('net').value}.</div>`; return null; }
+  const links = await currentLinks(self);
+  rep.appendChild(el('h3', null, `Audit: <code>${self}</code> <span class="small">(${$('net').value})</span>`));
 
   const liquid = acct.core_liquid_balance || '0 XPR';
-  const stakedRaw = (acct.voter_info && acct.voter_info.staked) || 0;
-  const stakedXpr = (Number(stakedRaw)/10000);
-  rep.appendChild(el('div','small',
-     `Liquid: <b>${liquid}</b> &nbsp;·&nbsp; Staked: <b>${stakedXpr.toLocaleString()} XPR</b>`));
+  const stakedXpr = Number((acct.voter_info&&acct.voter_info.staked)||0)/10000;
+  rep.appendChild(el('div','small', `Liquid: <b>${liquid}</b> · Staked: <b>${stakedXpr.toLocaleString()} XPR</b>`));
 
-  // find suspicious permissions
-  const suspects = [];
+  const suspects=[];
   for (const p of acct.permissions){
     const foreign = foreignControllers(p, self);
-    if (foreign.length){
-      const bad = foreign.some(f=>KNOWN_BAD.has(f.split('@')[0]));
-      suspects.push({perm:p.perm_name, parent:p.parent, foreign, bad, links:links[p.perm_name]||[]});
-    }
+    if (foreign.length) suspects.push({perm:p.perm_name, parent:p.parent, foreign,
+      bad:foreign.some(f=>KNOWN_BAD.has(f.split('@')[0])), links:links[p.perm_name]||[]});
   }
 
-  if (!suspects.length){
-    rep.appendChild(el('div','warn','✅ No foreign-controlled permissions found on this account. Nothing to clean up.'));
-    $('planPanel').className='panel hidden';
-    return;
+  // verdict banner
+  if (suspects.some(s=>s.bad))  rep.appendChild(el('div','crit',`🚨 <b>MALICIOUS permission found.</b> A known drainer account controls this account. Remove it now (below).`));
+  else if (suspects.length)     rep.appendChild(el('div','warn',`⚠️ <b>${suspects.length} foreign-controlled permission(s)</b> found — an account other than you can act for you. Review below.`));
+  else                          rep.appendChild(el('div','good',`✅ No foreign-controlled permissions found. No account other than you can act on your behalf.`));
+
+  // full per-permission audit
+  rep.appendChild(el('div','small',`<b>Full permission audit</b> (${acct.permissions.length} permissions):`));
+  for (const p of acct.permissions){
+    const foreign = foreignControllers(p, self);
+    const permLinks = links[p.perm_name]||[];
+    const flagged = foreign.length>0;
+    const keys = (p.required_auth.keys||[]).length;
+    const selfAcc = (p.required_auth.accounts||[]).filter(a=>a.permission.actor===self).map(a=>`${a.permission.actor}@${a.permission.permission}`);
+    const card = el('div', 'permcard'+(flagged?' flag':''));
+    card.innerHTML =
+      `<div><b>${p.perm_name}</b> <span class="small">(parent: ${p.parent||'—'}, threshold ${p.required_auth.threshold})</span> `+
+      (flagged?`<span class="tag bad">FOREIGN CONTROL</span>`:`<span class="tag ok">ok</span>`)+`</div>`+
+      `<div class="small">keys: ${keys} · self: ${selfAcc.join(', ')||'—'}`+
+      (foreign.length?` · <span style="color:var(--red)">foreign: ${foreign.join(', ')}</span>`:``)+`</div>`+
+      (permLinks.length?`<div class="small" style="margin-top:4px">linked actions:</div><ul>`+
+        permLinks.map(l=>`<li class="${(flagged||isRiskyLink(l))?'risk':''}">${l}${isRiskyLink(l)?' ⚠️':''}</li>`).join('')+`</ul>`:``);
+    rep.appendChild(card);
   }
 
-  for (const s of suspects){
-    const box = el('div', s.bad?'crit':'warn');
-    box.innerHTML =
-      `<div><span class="tag ${s.bad?'bad':'bad'}">${s.bad?'MALICIOUS':'FOREIGN'}</span> `+
-      `permission <code>${s.perm}</code> (child of <code>${s.parent}</code>) is controlled by `+
-      `<b>${s.foreign.join(', ')}</b>.</div>`+
-      `<div class="small" style="margin-top:6px">Linked to ${s.links.length} action(s):</div>`+
-      `<ul>${s.links.map(l=>`<li class="mono">${l}</li>`).join('')||'<li class="small">none</li>'}</ul>`;
-    rep.appendChild(box);
-  }
-
-  // SAFETY: only ENTIRELY-foreign CHILD permissions are eligible for deletion.
-  // Never auto-delete owner/active — that could lock the user out permanently.
+  // core-permission compromise (owner/active) — do NOT auto-delete
   const CORE = new Set(['owner','active']);
   const core = suspects.find(s=>CORE.has(s.perm));
   if (core){
     rep.appendChild(el('div','crit',
       `🚨 Your core <code>${core.perm}</code> permission is controlled by <b>${core.foreign.join(', ')}</b>. `+
       `This tool will NOT auto-delete a core permission — that risks locking you out. It must be RESET `+
-      `(an <code>updateauth</code> that removes the foreign account and sets a fresh key), ideally with `+
-      `help from WebAuth / Metallicus. Do not unstake or move funds until it is reset.`));
+      `(an <code>updateauth</code> removing the foreign account and setting a fresh key), ideally with help from `+
+      `WebAuth / Metallicus. Do not unstake or move funds until it is reset.`));
   }
   const deletable = suspects.filter(s=>!CORE.has(s.perm));
   const target = deletable.find(s=>s.bad) || deletable[0];
-  if (!target){ $('planPanel').className='panel hidden'; return; }
-  buildPlan(self, target, stakedXpr);
+  if (target && session && session.auth.actor.toString()===self) buildPlan(self, target, stakedXpr);
+  else { $('planPanel').className='panel hidden';
+    if (target) rep.appendChild(el('div','warn',`Connect as <code>${self}</code> to remove the <code>${target.perm}</code> permission in one signed transaction.`)); }
+  return {acct, target};
 }
 
 function buildPlan(self, target, stakedXpr){
-  if (target.perm==='owner' || target.perm==='active'){ return; } // hard guard: never delete core perms
+  if (target.perm==='owner' || target.perm==='active') return; // hard guard: never delete core perms
   const auth = [{actor:self, permission: session.auth.permission.toString()}];
   const actions = [];
-  // 1) unlink every currently-linked action  2) then delete the permission (order matters, atomic in one tx)
-  for (const key of target.links){
-    const [code,type]=key.split('::');
-    actions.push({account:'eosio', name:'unlinkauth', authorization:auth, data:{account:self, code, type}});
-  }
+  for (const key of target.links){ const [code,type]=key.split('::');
+    actions.push({account:'eosio', name:'unlinkauth', authorization:auth, data:{account:self, code, type}}); }
   actions.push({account:'eosio', name:'deleteauth', authorization:auth, data:{account:self, permission:target.perm}});
   PLAN = {actions, target};
-
-  const pj = $('planJson'); pj.textContent = JSON.stringify(actions, null, 2);
+  $('planJson').textContent = JSON.stringify(actions, null, 2);
   const ph = $('planHuman');
   ph.innerHTML =
-    `<p>This is <b>one transaction</b> that will:</p>`+
-    `<ul><li>Unlink <b>${target.links.length}</b> action(s) from the <code>${target.perm}</code> permission</li>`+
-    `<li>Delete the <code>${target.perm}</code> permission, removing <b>${target.foreign.join(', ')}</b>'s control of your account</li></ul>`+
-    `<p class="small">Signed with your <code>${session.auth.permission}</code> key. This tool never touches your keys or funds.</p>`;
-
-  if (stakedXpr > 0 && !target.links.some(l=>l.startsWith('eosio::unstake'))){
+    `<p>One transaction that will:</p><ul>`+
+    `<li>Unlink <b>${target.links.length}</b> action(s) from the <code>${target.perm}</code> permission</li>`+
+    `<li>Delete <code>${target.perm}</code>, removing <b>${target.foreign.join(', ')}</b>'s control of your account</li></ul>`+
+    `<p class="small">Signed with your <code>${session.auth.permission}</code> key. Never touches your keys or funds.</p>`;
+  if (stakedXpr>0 && !target.links.some(l=>l.startsWith('eosio::unstake'))){
     ph.appendChild(el('div','crit',
       `⚠️ <b>You have ${stakedXpr.toLocaleString()} XPR staked.</b> The attacker's permission is linked to token `+
-      `<i>transfers</i> but not to unstaking — so your staked XPR is currently out of their reach. `+
-      `<b>Run this cleanup FIRST, then unstake.</b> If you unstake before removing the permission, the moment your `+
-      `XPR becomes liquid it can be swept.`));
+      `<i>transfers</i> but not unstaking, so your staked XPR is out of reach for now. <b>Run this cleanup FIRST, `+
+      `then unstake.</b> Unstake before removing it and the moment it becomes liquid it can be swept.`));
   }
   $('planPanel').className='panel';
 }
 
 $('connect').onclick = async ()=>{
   NET = NETS[$('net').value];
-  if(!ProtonSDK){ alert('Wallet SDK failed to load. Check your connection / the script tag.'); return; }
+  if(!ProtonSDK){ alert('Wallet SDK failed to load — check your connection.'); return; }
   try{
-    const res = await ProtonSDK({
-      linkOptions:{ endpoints:[NET.rpc], chainId:NET.chainId, restoreSession:false },
-      transportOptions:{ requestAccount:'authcleanup' },
-      selectorOptions:{ appName:'XPR Auth Cleanup' }
-    });
+    const res = await ProtonSDK({ linkOptions:{ endpoints:[NET.rpc], chainId:NET.chainId, restoreSession:false },
+      transportOptions:{ requestAccount:'authcleanup' }, selectorOptions:{ appName:'XPR Auth Cleanup' } });
     link=res.link; session=res.session;
-    $('who').textContent = `Connected: ${session.auth.actor}@${session.auth.permission} (${$('net').value})`;
-    await analyze();
+    $('who').textContent = `Connected: ${session.auth.actor}@${session.auth.permission}`;
+    await audit(session.auth.actor.toString());
   }catch(e){ console.error(e); $('who').textContent = 'Connection cancelled/failed: '+(e.message||e); }
 };
+$('auditOnly').onclick = async ()=>{ const a=$('lookup').value.trim().toLowerCase(); if(!a) return; NET=NETS[$('net').value]; await audit(a); };
 
 $('sign').onclick = async ()=>{
-  if(!PLAN){ return; }
+  if(!PLAN) return;
   $('sign').disabled=true; $('signState').textContent='Awaiting signature in your wallet…';
   try{
     const r = await session.transact({actions:PLAN.actions}, {broadcast:true});
     const id = r.processed?.id || r.transaction_id || (r.resolved&&r.resolved.transaction.id);
-    $('signState').innerHTML = `✅ Done. <a target="_blank" href="${NET.explorer}${id}">${(id||'').slice(0,16)}…</a> — re-connect to verify the permission is gone.`;
+    $('signState').innerHTML = `✅ Done. <a target="_blank" href="${NET.explorer}${id}">${(id||'').slice(0,16)}…</a> — re-connect to verify it's gone.`;
   }catch(e){ console.error(e); $('sign').disabled=false; $('signState').textContent='Failed: '+(e.message||e); }
 };
 </script>
