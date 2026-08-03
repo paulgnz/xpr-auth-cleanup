@@ -1,5 +1,7 @@
 # XPR Auth Cleanup
 
+![XPR Auth Cleanup — by ProtonNZ](assets/og.png)
+
 **Live: [cleanup.protonnz.com](https://cleanup.protonnz.com)** · by [ProtonNZ](https://x.com/protonnz)
 
 A free, **non-custodial** web tool that finds and removes malicious **delegated permissions**
@@ -9,6 +11,17 @@ It was built in response to the `xprdrop.com` wallet-drainer campaign, which tri
 signing an `updateauth` that hands an attacker account a permission (named `claim`) over their
 wallet, then drains their tokens. Removing that permission by hand on a block explorer means
 20+ separate `unlinkauth` calls plus a `deleteauth`. This tool does it in one signed transaction.
+
+## What the scam looks like
+
+**The lure** — an unsolicited token whose memo advertises the fake airdrop site. Receiving it is
+harmless; the danger is only if you open the link and connect your wallet there:
+
+![Scam lure token in wallet](assets/scam-lure-example.png)
+
+**The fake site** (annotated) — it exists only to make you sign the drainer permission:
+
+![Fake xprdrop.com phishing site](assets/fake-site-example.png)
 
 ## How it works
 

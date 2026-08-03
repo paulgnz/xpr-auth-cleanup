@@ -138,10 +138,6 @@
 
     <div class="cta">
       <div class="row">
-        <select id="net">
-          <option value="mainnet">Mainnet</option>
-          <option value="testnet">Testnet (safe dry-run)</option>
-        </select>
         <button id="connect">Connect wallet &amp; audit →</button>
       </div>
       <div id="who" class="small" style="margin-top:10px"></div>
@@ -245,7 +241,7 @@ const NETS={
 };
 const KNOWN_BAD=new Set(['xprgrant','symbiote','xprdrops','rasmr5']);
 const RISKY_TYPES=new Set(['unstakexpr','refundxpr','delegatebw','undelegatebw','voteproducer','updateauth','linkauth']);
-let session=null,link=null,NET=null,PLAN=null;
+let session=null,link=null,NET=NETS.mainnet,PLAN=null;
 const $=id=>document.getElementById(id);
 const el=(t,c,h)=>{const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;};
 const ProtonSDK=(window.ProtonWebSDK&&(window.ProtonWebSDK.default||window.ProtonWebSDK));
@@ -264,11 +260,11 @@ const isRiskyLink=k=>RISKY_TYPES.has(k.split('::')[1]);
 async function audit(self){
   const acct=await rpc('/v1/chain/get_account',{account_name:self});
   const rep=$('report');rep.className='card';rep.innerHTML='';
-  if(acct.error||!acct.permissions){rep.innerHTML=`<div class="note crit">Account <code>${self}</code> not found on ${$('net').value}.</div>`;return;}
+  if(acct.error||!acct.permissions){rep.innerHTML=`<div class="note crit">Account <code>${self}</code> not found on mainnet.</div>`;return;}
   setStep(2);
   const links=await currentLinks(self);
   rep.appendChild(el('div','eyebrow','Audit result'));
-  rep.appendChild(el('h3',null,`<code>${self}</code> <span class="small" style="font-weight:400">· ${$('net').value} · <a href="${NET.account}${self}" target="_blank">view on explorer ↗</a> (Keys tab)</span>`));
+  rep.appendChild(el('h3',null,`<code>${self}</code> <span class="small" style="font-weight:400">· mainnet · <a href="${NET.account}${self}" target="_blank">view on explorer ↗</a> (Keys tab)</span>`));
   const liquid=acct.core_liquid_balance||'0 XPR';
   const stakedXpr=Number((acct.voter_info&&acct.voter_info.staked)||0)/10000;
   rep.appendChild(el('div','small',`Liquid: <b style="color:var(--ink)">${liquid}</b> · Staked: <b style="color:var(--ink)">${stakedXpr.toLocaleString()} XPR</b>`));
@@ -311,7 +307,7 @@ function buildPlan(self,target,stakedXpr){
   $('planPanel').className='card';
 }
 $('connect').onclick=async()=>{
-  NET=NETS[$('net').value];
+  NET=NETS.mainnet;
   if(!ProtonSDK){alert('Wallet SDK failed to load — check your connection.');return;}
   try{
     const res=await ProtonSDK({linkOptions:{endpoints:[NET.rpc],chainId:NET.chainId,restoreSession:false},transportOptions:{requestAccount:'protonnz'},selectorOptions:{appName:'XPR Auth Cleanup by ProtonNZ'}});
@@ -320,7 +316,7 @@ $('connect').onclick=async()=>{
     await audit(session.auth.actor.toString());
   }catch(e){console.error(e);$('who').textContent='Connection cancelled/failed: '+(e.message||e);}
 };
-$('auditOnly').onclick=async()=>{const a=$('lookup').value.trim().toLowerCase();if(!a)return;NET=NETS[$('net').value];await audit(a);};
+$('auditOnly').onclick=async()=>{const a=$('lookup').value.trim().toLowerCase();if(!a)return;NET=NETS.mainnet;await audit(a);};
 $('sign').onclick=async()=>{
   if(!PLAN)return;
   $('sign').disabled=true;$('signState').textContent='Awaiting signature in your wallet…';
