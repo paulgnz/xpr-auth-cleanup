@@ -228,9 +228,12 @@
   </footer>
 </div>
 
-<!-- Proton Web SDK (WebAuth / Anchor). Note: pin a version and vendor this locally before wide
-     distribution — a security tool should not load its core dependency from a third-party CDN. -->
-<script src="https://unpkg.com/@proton/web-sdk"></script>
+<!-- Proton Web SDK (WebAuth / Anchor) — pinned @5.0.0 and vendored locally (no third-party CDN),
+     with Subresource Integrity so the browser refuses it if the bytes ever change.
+     Verify: shasum -a 256 assets/vendor/proton-web-sdk-5.0.0.js -->
+<script src="./assets/vendor/proton-web-sdk-5.0.0.js"
+        integrity="sha384-4y+/7VBPpI8ZnU/mR2qss89bOaHWNjEd9Pb7V7P33XcOTalSLeob4v5JIxKPL25U"
+        crossorigin="anonymous"></script>
 <script>
 const REPO='https://github.com/paulgnz/xpr-auth-cleanup';
 const NETS={

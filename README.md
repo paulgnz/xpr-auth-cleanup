@@ -70,8 +70,34 @@ vercel --prod
 
 Notes for self-hosters:
 - Networks and the malicious-account list are configured at the top of the `<script>` in `index.html`.
-- For production, pin the Proton Web SDK to a specific version and vendor it locally rather than
-  loading it from a CDN.
+- The Proton Web SDK is pinned and vendored locally (see below) — there is no third-party CDN dependency.
+
+## Verification & integrity
+
+The tool loads **no third-party scripts at runtime**. Everything it needs is in this repo and served
+same-origin from `protonnz.com`.
+
+- **Proton Web SDK:** pinned to **`@proton/web-sdk@5.0.0`**, vendored at
+  `assets/vendor/proton-web-sdk-5.0.0.js`, and loaded with **Subresource Integrity** — the browser
+  refuses to run it if a single byte changes.
+  - `sha256` = `82bb0add23aff917a9252b4a5bad31d5bc7be806768c053bc4aae220dbf314aa`
+  - SRI `sha384-4y+/7VBPpI8ZnU/mR2qss89bOaHWNjEd9Pb7V7P33XcOTalSLeob4v5JIxKPL25U`
+
+Verify the vendored SDK matches the published npm package:
+
+```bash
+npm pack @proton/web-sdk@5.0.0
+tar -xzO -f proton-web-sdk-5.0.0.tgz package/lib/proton-web-sdk.bundle.js | shasum -a 256
+# -> should equal the sha256 above
+shasum -a 256 assets/vendor/proton-web-sdk-5.0.0.js
+```
+
+Each tagged release records the `sha256` of `index.html` so you can confirm the live site at
+`cleanup.protonnz.com` is byte-for-byte the audited source:
+
+```bash
+curl -s https://cleanup.protonnz.com | shasum -a 256   # compare to the release notes
+```
 
 ## Credits
 
